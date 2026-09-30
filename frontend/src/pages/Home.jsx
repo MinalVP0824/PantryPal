@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import axios from 'axios';
 import toast from 'react-hot-toast';
 import RecipeForm from '../components/RecipeForm';
 import RecipeCard from '../components/RecipeCard';
 import LoadingSpinner from '../components/LoadingSpinner';
 import DoodleBackground from '../components/DoodleBackground';
+import api from '../utils/api';
 
 const Home = () => {
   const [recipe, setRecipe] = useState(null);
@@ -13,7 +13,7 @@ const Home = () => {
   const generateRecipe = async (formData) => {
     setLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/recipe', formData);
+      const response = await api.post('/api/recipe', formData);
       setRecipe(response.data);
     } catch (err) {
       toast.error('Something went wrong while generating your recipe.');
@@ -29,7 +29,7 @@ const Home = () => {
         <DoodleBackground />
         <button
           onClick={() => setRecipe(null)}
-          className="fixed top-4 left-4 md:left-16 bg-card border-2 border-kraft px-3.5 py-2 rounded-sm font-typewriter text-sm text-ink hover:bg-card-alt active:scale-95 transition-all z-50 shadow-[3px_3px_0_rgba(59,46,34,0.15)]"
+          className="fixed top-4 left-4 md:left-16 bg-card border-2 border-kraft px-3.5 py-2 rounded-sm font-typewriter text-sm hover:bg-card-alt active:scale-95 transition-all z-50 shadow-[3px_3px_0_rgba(59,46,34,0.15)]"
         >
           ← Start over
         </button>
