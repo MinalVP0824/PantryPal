@@ -9,6 +9,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('./models/User');
 const authMiddleware = require('./middleware/auth');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -21,10 +22,6 @@ app.use(express.json());
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => console.log('Connected to MongoDB'))
   .catch((err) => console.error('MongoDB connection error:', err));
-
-app.get('/', (req, res) => {
-  res.send('PantryPal backend is running!');
-});
 
 // AI recipe generation — public, no login needed
 app.post('/api/recipe', async (req, res) => {
@@ -323,6 +320,13 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('Login failed:', err);
     res.status(500).json({ error: 'Login failed. Please try again.' });
   }
+});
+
+// Serve the React frontend's production build
+app.use(express.static(path.join(__dirname, '../frontend/dist')));
+
+app.get(/^(?!\/api).*/, (req, res) => {
+  res.sendFile(path.join(__dirname, '../frontend/dist/index.html'));
 });
 
 app.listen(PORT, () => {
