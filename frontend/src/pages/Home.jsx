@@ -29,7 +29,7 @@ const Home = () => {
         <DoodleBackground />
         <button
           onClick={() => setRecipe(null)}
-          className="fixed top-4 left-4 md:left-16 bg-[#F7F0DD] border border-kraft px-3.5 py-2 rounded-sm font-typewriter text-sm hover:bg-[#E8D9A8]/40 transition-colors z-50 shadow-[3px_3px_0_rgba(59,46,34,0.15)]"
+          className="fixed top-4 left-4 md:left-16 bg-card border-2 border-kraft px-3.5 py-2 rounded-sm font-typewriter text-sm text-ink hover:bg-card-alt active:scale-95 transition-all z-50 shadow-[3px_3px_0_rgba(59,46,34,0.15)]"
         >
           ← Start over
         </button>

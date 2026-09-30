@@ -1,15 +1,31 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-paper: #EDE0C8;
+  --color-card: #F7F0DD;
+  --color-card-alt: #E8D9A8;
   --color-ink: #3B2E22;
   --color-kraft: #A9835C;
   --color-gingham: #A8433C;
+  --color-gingham-dark: #8f3630;
   --color-sage: #6B7A4F;
 
   --font-typewriter: 'Special Elite', monospace;
   --font-handwritten: 'Kalam', cursive;
   --font-sans: 'Inter', sans-serif;
+}
+
+.dark {
+  --color-paper: #1C1712;
+  --color-card: #241E17;
+  --color-card-alt: #2E2620;
+  --color-ink: #E8DCC8;
+  --color-kraft: #8B6F4E;
+  --color-gingham: #C1554B;
+  --color-gingham-dark: #A8433C;
+  --color-sage: #7C8F5F;
 }
 
 body {
@@ -19,6 +35,7 @@ body {
     radial-gradient(circle at 80% 70%, rgba(169, 131, 92, 0.05) 0%, transparent 50%);
   font-family: var(--font-sans);
   color: var(--color-ink);
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 @keyframes spin-slow {

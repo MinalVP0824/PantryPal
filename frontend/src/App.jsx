@@ -8,6 +8,7 @@ import SavedRecipesPage from './pages/SavedRecipesPage';
 import PlannerPage from './pages/PlannerPage';
 import GroceryListPage from './pages/GroceryListPage';
 import RecipeDetailPage from './pages/RecipeDetailPage';
+import AuthPage from './pages/AuthPage';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
               <Route path="/saved/:id" element={<RecipeDetailPage />} />
               <Route path="/planner" element={<PlannerPage />} />
               <Route path="/grocery-list" element={<GroceryListPage />} />
+              <Route path="/login" element={<AuthPage />} />
             </Routes>
           </div>
           <Toaster

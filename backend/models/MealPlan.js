@@ -5,13 +5,14 @@ const slotSchema = new mongoose.Schema({
 });
 
 const daySchema = new mongoose.Schema({
-  day: { type: String, required: true }, // "Monday", "Tuesday", etc.
+  day: { type: String, required: true },
   breakfast: slotSchema,
   lunch: slotSchema,
   dinner: slotSchema,
 });
 
 const mealPlanSchema = new mongoose.Schema({
+  user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
   weekLabel: { type: String, default: 'Current Week' },
   days: [daySchema],
 });

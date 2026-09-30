@@ -5,13 +5,15 @@ const mongoose = require('mongoose');
 const Groq = require('groq-sdk');
 const Recipe = require('./models/Recipe');
 const MealPlan = require('./models/MealPlan');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const User = require('./models/User');
+const authMiddleware = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
-
 
 app.use(cors());
 app.use(express.json());
@@ -24,7 +26,7 @@ app.get('/', (req, res) => {
   res.send('PantryPal backend is running!');
 });
 
-// AI recipe generation
+// AI recipe generation — public, no login needed
 app.post('/api/recipe', async (req, res) => {
   const { ingredients, cuisine, dietTags } = req.body;
 
@@ -63,10 +65,10 @@ For ingredients with no meaningful unit (like "eggs" or "onions"), use an empty 
   }
 });
 
-// CREATE - save a recipe to the database
-app.post('/api/recipes/save', async (req, res) => {
+// CREATE - save a recipe (protected)
+app.post('/api/recipes/save', authMiddleware, async (req, res) => {
   try {
-    const newRecipe = new Recipe(req.body);
+    const newRecipe = new Recipe({ ...req.body, user: req.userId });
     const savedRecipe = await newRecipe.save();
     res.status(201).json(savedRecipe);
   } catch (err) {
@@ -75,11 +77,11 @@ app.post('/api/recipes/save', async (req, res) => {
   }
 });
 
-// READ - get all saved recipes (with optional search/filter)
-app.get('/api/recipes', async (req, res) => {
+// READ - get this user's saved recipes (protected)
+app.get('/api/recipes', authMiddleware, async (req, res) => {
   try {
     const { search, dietTag } = req.query;
-    const filter = {};
+    const filter = { user: req.userId };
 
     if (search) {
       filter.title = { $regex: search, $options: 'i' };
@@ -96,10 +98,10 @@ app.get('/api/recipes', async (req, res) => {
   }
 });
 
-// READ - get a single recipe by ID
-app.get('/api/recipes/:id', async (req, res) => {
+// READ - get a single recipe by ID (protected, must be the owner)
+app.get('/api/recipes/:id', authMiddleware, async (req, res) => {
   try {
-    const recipe = await Recipe.findById(req.params.id);
+    const recipe = await Recipe.findOne({ _id: req.params.id, user: req.userId });
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found.' });
     }
@@ -110,11 +112,11 @@ app.get('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// UPDATE - edit an existing recipe
-app.put('/api/recipes/:id', async (req, res) => {
+// UPDATE - edit an existing recipe (protected, must be the owner)
+app.put('/api/recipes/:id', authMiddleware, async (req, res) => {
   try {
-    const updatedRecipe = await Recipe.findByIdAndUpdate(
-      req.params.id,
+    const updatedRecipe = await Recipe.findOneAndUpdate(
+      { _id: req.params.id, user: req.userId },
       req.body,
       { new: true, runValidators: true }
     );
@@ -128,10 +130,10 @@ app.put('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// DELETE - remove a recipe
-app.delete('/api/recipes/:id', async (req, res) => {
+// DELETE - remove a recipe (protected, must be the owner)
+app.delete('/api/recipes/:id', authMiddleware, async (req, res) => {
   try {
-    const deletedRecipe = await Recipe.findByIdAndDelete(req.params.id);
+    const deletedRecipe = await Recipe.findOneAndDelete({ _id: req.params.id, user: req.userId });
     if (!deletedRecipe) {
       return res.status(404).json({ error: 'Recipe not found.' });
     }
@@ -142,14 +144,13 @@ app.delete('/api/recipes/:id', async (req, res) => {
   }
 });
 
-// --- Meal Planner routes ---
+// --- Meal Planner routes (all protected) ---
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const SLOTS = ['breakfast', 'lunch', 'dinner'];
 
-// Helper: get the existing plan, or create a blank one if none exists yet
-const getOrCreatePlan = async () => {
-  let plan = await MealPlan.findOne();
+const getOrCreatePlan = async (userId) => {
+  let plan = await MealPlan.findOne({ user: userId });
   if (!plan) {
     const blankDays = DAYS.map((day) => ({
       day,
@@ -157,15 +158,14 @@ const getOrCreatePlan = async () => {
       lunch: { recipe: null },
       dinner: { recipe: null },
     }));
-    plan = await MealPlan.create({ weekLabel: 'Current Week', days: blankDays });
+    plan = await MealPlan.create({ user: userId, weekLabel: 'Current Week', days: blankDays });
   }
   return plan;
 };
 
-// GET the current meal plan, with full recipe details populated
-app.get('/api/mealplan', async (req, res) => {
+app.get('/api/mealplan', authMiddleware, async (req, res) => {
   try {
-    const plan = await getOrCreatePlan();
+    const plan = await getOrCreatePlan(req.userId);
     const populatedPlan = await plan.populate([
       { path: 'days.breakfast.recipe' },
       { path: 'days.lunch.recipe' },
@@ -178,12 +178,11 @@ app.get('/api/mealplan', async (req, res) => {
   }
 });
 
-// POST assign a recipe to a specific day + slot
-app.post('/api/mealplan/assign', async (req, res) => {
+app.post('/api/mealplan/assign', authMiddleware, async (req, res) => {
   try {
     const { day, slot, recipeId } = req.body;
 
-    const plan = await getOrCreatePlan();
+    const plan = await getOrCreatePlan(req.userId);
     const targetDay = plan.days.find((d) => d.day === day);
 
     if (!targetDay) {
@@ -208,12 +207,11 @@ app.post('/api/mealplan/assign', async (req, res) => {
   }
 });
 
-// POST clear a recipe from a specific day + slot
-app.post('/api/mealplan/clear', async (req, res) => {
+app.post('/api/mealplan/clear', authMiddleware, async (req, res) => {
   try {
     const { day, slot } = req.body;
 
-    const plan = await getOrCreatePlan();
+    const plan = await getOrCreatePlan(req.userId);
     const targetDay = plan.days.find((d) => d.day === day);
 
     if (!targetDay) {
@@ -238,10 +236,10 @@ app.post('/api/mealplan/clear', async (req, res) => {
   }
 });
 
-// GET the grocery list, computed from the current meal plan
-app.get('/api/grocery-list', async (req, res) => {
+// GET the grocery list, computed from this user's meal plan (protected)
+app.get('/api/grocery-list', authMiddleware, async (req, res) => {
   try {
-    const plan = await getOrCreatePlan();
+    const plan = await getOrCreatePlan(req.userId);
     const populatedPlan = await plan.populate([
       { path: 'days.breakfast.recipe' },
       { path: 'days.lunch.recipe' },
@@ -271,6 +269,59 @@ app.get('/api/grocery-list', async (req, res) => {
   } catch (err) {
     console.error('Failed to build grocery list:', err);
     res.status(500).json({ error: 'Failed to build grocery list.' });
+  }
+});
+
+// --- Auth routes (public) ---
+
+app.post('/api/auth/signup', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+    if (password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'An account with this email already exists.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await User.create({ email, password: hashedPassword });
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+    res.status(201).json({ token, email: user.email });
+  } catch (err) {
+    console.error('Signup failed:', err);
+    res.status(500).json({ error: 'Signup failed. Please try again.' });
+  }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) {
+      return res.status(401).json({ error: 'Invalid email or password.' });
+    }
+
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+
+    res.json({ token, email: user.email });
+  } catch (err) {
+    console.error('Login failed:', err);
+    res.status(500).json({ error: 'Login failed. Please try again.' });
   }
 });
 
