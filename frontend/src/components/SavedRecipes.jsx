@@ -67,7 +67,7 @@ const SavedRecipes = () => {
       <div className="max-w-2xl mx-auto">
         <h2 className="font-typewriter text-3xl mb-1">Saved Recipes</h2>
         <div className="flex flex-col items-center text-center py-16 bg-card border-2 border-kraft rounded-sm shadow-[4px_4px_0_rgba(59,46,34,0.12)] mt-4">
-          <div className="opacity-40">
+          <div className="opacity-40 dark:invert">
             <HerbDoodle size={110} />
           </div>
           <p className="text-ink/50 font-handwritten text-xl mt-3">Log in to see your saved recipes.</p>
